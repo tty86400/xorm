@@ -764,14 +764,19 @@ var (
 		"YES":                       true,
 		"ZONE":                      true,
 	}
+
+	// DefaultPostgresSchema default postgres schema
+	DefaultPostgresSchema = "public"
 )
 
 type postgres struct {
 	core.Base
 	filters []core.Filter
+	schema  string
 }
 
 func (db *postgres) Init(d *core.DB, uri *core.Uri, drivername, dataSourceName string) error {
+	db.schema = DefaultPostgresSchema
 	return db.Base.Init(d, db, uri, drivername, dataSourceName)
 }
 
@@ -890,6 +895,12 @@ func (db *postgres) ModifyColumnSql(tableName string, col *core.Column) string {
 		tableName, col.Name, db.SqlType(col))
 }
 
+func (db *postgres) CreateIndexSql(tableName string, index *core.Index) string {
+	quote := db.Quote
+	return fmt.Sprintf("CREATE INDEX %v ON %v (%v);", quote(indexName(tableName, index.Name)),
+		quote(tableName), quote(strings.Join(index.Cols, quote(","))))
+}
+
 func (db *postgres) DropIndexSql(tableName string, index *core.Index) string {
 	//var unique string
 	quote := db.Quote
@@ -923,7 +934,7 @@ func (db *postgres) IsColumnExist(tableName, colName string) (bool, error) {
 
 func (db *postgres) GetColumns(tableName string) ([]string, map[string]*core.Column, error) {
 	// FIXME: the schema should be replaced by user custom's
-	args := []interface{}{tableName, "public"}
+	args := []interface{}{tableName, db.schema}
 	s := `SELECT column_name, column_default, is_nullable, data_type, character_maximum_length, numeric_precision, numeric_precision_radix ,
     CASE WHEN p.contype = 'p' THEN true ELSE false END AS primarykey,
     CASE WHEN p.contype = 'u' THEN true ELSE false END AS uniquekey
@@ -1024,8 +1035,7 @@ WHERE c.relkind = 'r'::char AND c.relname = $1 AND s.table_schema = $2 AND f.att
 }
 
 func (db *postgres) GetTables() ([]*core.Table, error) {
-	// FIXME: replace public to user customrize schema
-	args := []interface{}{"public"}
+	args := []interface{}{db.schema}
 	s := fmt.Sprintf("SELECT tablename FROM pg_tables WHERE schemaname = $1")
 	db.LogSQL(s, args)
 
@@ -1050,8 +1060,7 @@ func (db *postgres) GetTables() ([]*core.Table, error) {
 }
 
 func (db *postgres) GetIndexes(tableName string) (map[string]*core.Index, error) {
-	// FIXME: replace the public schema to user specify schema
-	args := []interface{}{"public", tableName}
+	args := []interface{}{db.schema, tableName}
 	s := fmt.Sprintf("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname=$1 AND tablename=$2")
 	db.LogSQL(s, args)
 

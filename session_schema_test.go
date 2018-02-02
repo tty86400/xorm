@@ -217,3 +217,37 @@ func TestCharst(t *testing.T) {
 		panic(err)
 	}
 }
+
+func TestSync2_1(t *testing.T) {
+	type WxTest struct {
+		Id                 int   `xorm:"not null pk autoincr INT(64)`
+		Passport_user_type int16 `xorm:"null int"`
+		Id_delete          int8  `xorm:"null int default 1"`
+	}
+
+	assert.NoError(t, prepareEngine())
+
+	assert.NoError(t, testEngine.DropTables("wx_test"))
+	assert.NoError(t, testEngine.Sync2(new(WxTest)))
+	assert.NoError(t, testEngine.Sync2(new(WxTest)))
+}
+
+func TestUnique_1(t *testing.T) {
+	type UserUnique struct {
+		Id        int64
+		UserName  string    `xorm:"unique varchar(25) not null"`
+		Password  string    `xorm:"varchar(255) not null"`
+		Admin     bool      `xorm:"not null"`
+		CreatedAt time.Time `xorm:"created"`
+		UpdatedAt time.Time `xorm:"updated"`
+	}
+
+	assert.NoError(t, prepareEngine())
+
+	assert.NoError(t, testEngine.DropTables("user_unique"))
+	assert.NoError(t, testEngine.Sync2(new(UserUnique)))
+
+	assert.NoError(t, testEngine.DropTables("user_unique"))
+	assert.NoError(t, testEngine.CreateTables(new(UserUnique)))
+	assert.NoError(t, testEngine.CreateUniques(new(UserUnique)))
+}

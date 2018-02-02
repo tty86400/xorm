@@ -488,6 +488,12 @@ func (db *mysql) GetIndexes(tableName string) (map[string]*core.Index, error) {
 	return indexes, nil
 }
 
+func (db *mysql) CreateIndexSql(tableName string, index *core.Index) string {
+	quote := db.Quote
+	return fmt.Sprintf("CREATE INDEX %v ON %v (%v);", quote(indexName(tableName, index.Name)),
+		quote(tableName), quote(strings.Join(index.Cols, quote(","))))
+}
+
 func (db *mysql) Filters() []core.Filter {
 
 	if len(db.filters) == 0 {
