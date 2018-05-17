@@ -547,7 +547,7 @@ func (db *oracle) AutoIncrStr() string {
 }
 
 func (db *oracle) SupportInsertMany() bool {
-	return true
+	return false
 }
 
 func (db *oracle) IsReserved(name string) bool {
