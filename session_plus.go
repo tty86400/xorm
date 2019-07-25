@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/Chronokeeper/anyxml"
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 	//	"gopkg.in/flosch/pongo2.v3"
 )
 

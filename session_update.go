@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-xorm/builder"
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 func (session *Session) cacheUpdate(table *core.Table, tableName, sqlStr string, args ...interface{}) error {

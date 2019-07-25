@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-xorm/builder"
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 const (

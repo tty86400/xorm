@@ -10,7 +10,7 @@ import (
 	"reflect"
 
 	"github.com/go-xorm/builder"
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 // Exist returns true if the record exist otherwise return false

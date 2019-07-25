@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 // Ping test if database is ok

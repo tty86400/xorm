@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -5,7 +5,7 @@
 package xorm
 
 import (
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 // EngineGroup defines an engine group

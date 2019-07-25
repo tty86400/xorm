@@ -1,6 +1,6 @@
 package xorm
 
-import "github.com/xormplus/core"
+import "github.com/chinahdkj/core"
 
 type MutableFilter interface {
 	AddFilter(filters ...core.Filter)

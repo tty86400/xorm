@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 var (

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 func TestSetExpr(t *testing.T) {

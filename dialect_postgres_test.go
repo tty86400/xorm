@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 func TestPostgresDialect(t *testing.T) {

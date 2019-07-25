@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 // Get retrieve one record from database, bean's non-empty fields

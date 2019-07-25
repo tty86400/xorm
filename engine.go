@@ -21,7 +21,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-xorm/builder"
-	"github.com/xormplus/core"
+	"github.com/chinahdkj/core"
 )
 
 // Engine is the major struct of xorm, it means a database manager.
