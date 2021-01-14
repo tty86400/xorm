@@ -5,10 +5,14 @@
 package xorm
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/chinahdkj/core"
 )
+
+
+
 
 // Sync2 synchronize structs to database tables
 func (session *Session) HdSync(beans ...interface{}) error {
@@ -19,7 +23,21 @@ func (session *Session) HdSync(beans ...interface{}) error {
 		defer session.Close()
 	}
 
-	tables, err := engine.DBMetas()
+	targetTables := []string{}
+	for _, bean := range beans {
+		v := rValue(bean)
+		table, err := engine.mapType(v)
+		if err != nil {
+			return err
+		}
+		var tbName= session.tbNameNoSchema(table)
+		targetTables = append(targetTables,tbName)
+	}
+
+	fmt.Println("XXXXXXXXX-targetTables:",targetTables)
+
+
+	tables, err := engine.HdDBMetas(targetTables)
 	if err != nil {
 		return err
 	}
