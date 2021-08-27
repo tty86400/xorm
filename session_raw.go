@@ -13,8 +13,10 @@ import (
 )
 
 func (session *Session) queryPreprocess(sqlStr *string, paramStr ...interface{}) {
-	for _, filter := range session.engine.dialect.Filters() {
-		*sqlStr = filter.Do(*sqlStr, session.engine.dialect, session.statement.RefTable)
+	if !session.noPreprocess{
+		for _, filter := range session.engine.dialect.Filters() {
+			*sqlStr = filter.Do(*sqlStr, session.engine.dialect, session.statement.RefTable)
+		}
 	}
 
 	session.lastSQL = *sqlStr
