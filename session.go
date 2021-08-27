@@ -54,6 +54,8 @@ type Session struct {
 	lastSQLArgs []interface{}
 
 	rollbackSavePointID string
+	
+	executeRawSql bool //execute sql without modify
 
 	err error
 }
@@ -122,6 +124,11 @@ func (session *Session) resetStatement() {
 // Prepare set a flag to session that should be prepare statement before execute query
 func (session *Session) Prepare() *Session {
 	session.prepareStmt = true
+	return session
+}
+
+func (session *Session) ExecuteSqlRaw() *Session{
+	session.executeSqlRaw = true
 	return session
 }
 
