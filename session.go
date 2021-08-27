@@ -55,7 +55,7 @@ type Session struct {
 
 	rollbackSavePointID string
 	
-	noPrepear bool //execute sql without modify
+	noPreprocess bool //execute sql without modify
 
 	err error
 }
@@ -127,8 +127,8 @@ func (session *Session) Prepare() *Session {
 	return session
 }
 
-func (session *Session) NoPrepear() *Session{
-	session.noPrepear = true
+func (session *Session) NoPreprocess() *Session{
+	session.noPreprocess = true
 	return session
 }
 
