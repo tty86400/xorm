@@ -255,13 +255,15 @@ func (session *Session) Sync2(beans ...interface{}) error {
 		return err
 	}
 
-	var structTables []*core.Table
+	var structTables = make([]*core.Table, 0, len(beans))
 
 	for _, bean := range beans {
 		v := rValue(bean)
-		table, err := engine.mapType(v)
-		if err != nil {
-			return err
+
+		table, ierr := engine.mapType(v)
+		if ierr != nil {
+			engine.logger.Errorf("sync table of mapType %T error: %v", v, ierr)
+			return ierr
 		}
 		structTables = append(structTables, table)
 		var tbName = session.tbNameNoSchema(table)
@@ -274,149 +276,9 @@ func (session *Session) Sync2(beans ...interface{}) error {
 			}
 		}
 
-		if oriTable == nil {
-			err = session.StoreEngine(session.statement.StoreEngine).createTable(bean)
-			if err != nil {
-				return err
-			}
-
-			err = session.createUniques(bean)
-			if err != nil {
-				return err
-			}
-
-			err = session.createIndexes(bean)
-			if err != nil {
-				return err
-			}
-		} else {
-			for _, col := range table.Columns() {
-				var oriCol *core.Column
-				for _, col2 := range oriTable.Columns() {
-					if strings.EqualFold(col.Name, col2.Name) {
-						oriCol = col2
-						break
-					}
-				}
-
-				if oriCol != nil {
-					expectedType := engine.dialect.SqlType(col)
-					curType := engine.dialect.SqlType(oriCol)
-					if expectedType != curType {
-						if expectedType == core.Text &&
-							strings.HasPrefix(curType, core.Varchar) {
-							// currently only support mysql & postgres
-							if engine.dialect.DBType() == core.MYSQL ||
-								engine.dialect.DBType() == core.POSTGRES {
-								engine.logger.Infof("Table %s column %s change type from %s to %s\n",
-									tbName, col.Name, curType, expectedType)
-								_, err = session.exec(engine.dialect.ModifyColumnSql(table.Name, col))
-							} else {
-								engine.logger.Warnf("Table %s column %s db type is %s, struct type is %s\n",
-									tbName, col.Name, curType, expectedType)
-							}
-						} else if strings.HasPrefix(curType, core.Varchar) && strings.HasPrefix(expectedType, core.Varchar) {
-							if engine.dialect.DBType() == core.MYSQL {
-								if oriCol.Length < col.Length {
-									engine.logger.Infof("Table %s column %s change type from varchar(%d) to varchar(%d)\n",
-										tbName, col.Name, oriCol.Length, col.Length)
-									_, err = session.exec(engine.dialect.ModifyColumnSql(table.Name, col))
-								}
-							}
-						} else {
-							if !(strings.HasPrefix(curType, expectedType) && curType[len(expectedType)] == '(') {
-								engine.logger.Warnf("Table %s column %s db type is %s, struct type is %s",
-									tbName, col.Name, curType, expectedType)
-							}
-						}
-					} else if expectedType == core.Varchar {
-						if engine.dialect.DBType() == core.MYSQL {
-							if oriCol.Length < col.Length {
-								engine.logger.Infof("Table %s column %s change type from varchar(%d) to varchar(%d)\n",
-									tbName, col.Name, oriCol.Length, col.Length)
-								_, err = session.exec(engine.dialect.ModifyColumnSql(table.Name, col))
-							}
-						}
-					}
-					if col.Default != oriCol.Default {
-						engine.logger.Warnf("Table %s Column %s db default is %s, struct default is %s",
-							tbName, col.Name, oriCol.Default, col.Default)
-					}
-					if col.Nullable != oriCol.Nullable {
-						engine.logger.Warnf("Table %s Column %s db nullable is %v, struct nullable is %v",
-							tbName, col.Name, oriCol.Nullable, col.Nullable)
-					}
-				} else {
-					session.statement.RefTable = table
-					session.statement.tableName = tbName
-					err = session.addColumn(col.Name)
-				}
-				if err != nil {
-					return err
-				}
-			}
-
-			var foundIndexNames = make(map[string]bool)
-			var addedNames = make(map[string]*core.Index)
-
-			for name, index := range table.Indexes {
-				var oriIndex *core.Index
-				for name2, index2 := range oriTable.Indexes {
-					if index.Equal(index2) {
-						oriIndex = index2
-						foundIndexNames[name2] = true
-						break
-					}
-				}
-
-				if oriIndex != nil {
-					if oriIndex.Type != index.Type {
-
-						sql := engine.dialect.DropIndexSql(tbName, oriIndex)
-
-						if sql != "" {
-							_, err = session.exec(sql)
-							if err != nil {
-								return err
-							}
-							oriIndex = nil
-						}
-					}
-				}
-
-				if oriIndex == nil {
-					addedNames[name] = index
-				}
-			}
-
-			for name2, index2 := range oriTable.Indexes {
-				if _, ok := foundIndexNames[name2]; !ok {
-
-					sql := engine.dialect.DropIndexSql(tbName, index2)
-
-					if sql != "" {
-						_, err = session.exec(sql)
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
-
-			for name, index := range addedNames {
-				if index.Type == core.UniqueType {
-					session.statement.RefTable = table
-					session.statement.tableName = tbName
-					err = session.addUnique(tbName, name)
-				} else if index.Type == core.IndexType {
-					session.statement.RefTable = table
-					session.statement.tableName = tbName
-					err = session.addIndex(tbName, name)
-				}
-				if err != nil {
-					return err
-				}
-			}
+		if ierr = session.syncBean(oriTable, table, bean); ierr != nil {
+			engine.logger.Errorf("sync table [%s] error: %v", tbName, ierr)
+			return ierr
 		}
 	}
 
@@ -430,7 +292,7 @@ func (session *Session) Sync2(beans ...interface{}) error {
 		}
 
 		if oriTable == nil {
-			//engine.LogWarnf("Table %s has no struct to mapping it", table.Name)
+			// engine.LogWarnf("Table %s has no struct to mapping it", table.Name)
 			continue
 		}
 
@@ -441,4 +303,157 @@ func (session *Session) Sync2(beans ...interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (session *Session) syncBean(oriTable, table *core.Table, bean interface{}) (err error) {
+	engine := session.engine
+
+	if oriTable == nil {
+		err = session.StoreEngine(session.statement.StoreEngine).createTable(bean)
+		if err != nil {
+			return err
+		}
+
+		err = session.createUniques(bean)
+		if err != nil {
+			return err
+		}
+
+		err = session.createIndexes(bean)
+		if err != nil {
+			return err
+		}
+		return
+	}
+
+	var tbName = session.tbNameNoSchema(table)
+	for _, col := range table.Columns() {
+		var oriCol *core.Column
+		for _, col2 := range oriTable.Columns() {
+			if strings.EqualFold(col.Name, col2.Name) {
+				oriCol = col2
+				break
+			}
+		}
+
+		if oriCol != nil {
+			expectedType := engine.dialect.SqlType(col)
+			curType := engine.dialect.SqlType(oriCol)
+			if expectedType != curType {
+				if expectedType == core.Text &&
+					strings.HasPrefix(curType, core.Varchar) {
+					// currently only support mysql & postgres
+					if engine.dialect.DBType() == core.MYSQL ||
+						engine.dialect.DBType() == core.POSTGRES {
+						engine.logger.Infof("Table %s column %s change type from %s to %s\n",
+							tbName, col.Name, curType, expectedType)
+						_, err = session.exec(engine.dialect.ModifyColumnSql(table.Name, col))
+					} else {
+						engine.logger.Warnf("Table %s column %s db type is %s, struct type is %s\n",
+							tbName, col.Name, curType, expectedType)
+					}
+				} else if strings.HasPrefix(curType, core.Varchar) && strings.HasPrefix(expectedType, core.Varchar) {
+					if engine.dialect.DBType() == core.MYSQL {
+						if oriCol.Length < col.Length {
+							engine.logger.Infof("Table %s column %s change type from varchar(%d) to varchar(%d)\n",
+								tbName, col.Name, oriCol.Length, col.Length)
+							_, err = session.exec(engine.dialect.ModifyColumnSql(table.Name, col))
+						}
+					}
+				} else {
+					if !(strings.HasPrefix(curType, expectedType) && curType[len(expectedType)] == '(') {
+						engine.logger.Warnf("Table %s column %s db type is %s, struct type is %s",
+							tbName, col.Name, curType, expectedType)
+					}
+				}
+			} else if expectedType == core.Varchar {
+				if engine.dialect.DBType() == core.MYSQL {
+					if oriCol.Length < col.Length {
+						engine.logger.Infof("Table %s column %s change type from varchar(%d) to varchar(%d)\n",
+							tbName, col.Name, oriCol.Length, col.Length)
+						_, err = session.exec(engine.dialect.ModifyColumnSql(table.Name, col))
+					}
+				}
+			}
+			if col.Default != oriCol.Default {
+				engine.logger.Warnf("Table %s Column %s db default is %s, struct default is %s",
+					tbName, col.Name, oriCol.Default, col.Default)
+			}
+			if col.Nullable != oriCol.Nullable {
+				engine.logger.Warnf("Table %s Column %s db nullable is %v, struct nullable is %v",
+					tbName, col.Name, oriCol.Nullable, col.Nullable)
+			}
+		} else {
+			session.statement.RefTable = table
+			session.statement.tableName = tbName
+			err = session.addColumn(col.Name)
+		}
+		if err != nil {
+			return fmt.Errorf("modify column[%s] %w", col.Name, err)
+		}
+	}
+
+	var foundIndexNames = make(map[string]bool)
+	var addedNames = make(map[string]*core.Index)
+
+	for name, index := range table.Indexes {
+		var oriIndex *core.Index
+		for name2, index2 := range oriTable.Indexes {
+			if index.Equal(index2) {
+				oriIndex = index2
+				foundIndexNames[name2] = true
+				break
+			}
+		}
+
+		if oriIndex != nil {
+			if oriIndex.Type != index.Type {
+
+				sql := engine.dialect.DropIndexSql(tbName, oriIndex)
+
+				if sql != "" {
+					_, err = session.exec(sql)
+					if err != nil {
+						return fmt.Errorf("drop index[%s=%v] %w", oriIndex.Name, oriIndex.Cols, err)
+					}
+					oriIndex = nil
+				}
+			}
+		}
+
+		if oriIndex == nil {
+			addedNames[name] = index
+		}
+	}
+
+	for name2, index2 := range oriTable.Indexes {
+		if _, ok := foundIndexNames[name2]; !ok {
+
+			sql := engine.dialect.DropIndexSql(tbName, index2)
+
+			if sql != "" {
+				_, err = session.exec(sql)
+				if err != nil {
+					return fmt.Errorf("drop index[%s=%v] %w", index2.Name, index2.Cols, err)
+				}
+			}
+		}
+	}
+
+	for name, index := range addedNames {
+		if index.Type == core.UniqueType {
+			session.statement.RefTable = table
+			session.statement.tableName = tbName
+			err = session.addUnique(tbName, name)
+		} else if index.Type == core.IndexType {
+			session.statement.RefTable = table
+			session.statement.tableName = tbName
+			err = session.addIndex(tbName, name)
+		}
+		if err != nil {
+			return fmt.Errorf("add index[%s=%v] %w", name, index.Cols, err)
+		}
+	}
+
+	return
 }
