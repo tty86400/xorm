@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/xormplus/xorm"
+	"github.com/chinahdkj/xorm"
 )
 
 // MigrateFunc is the func signature for migrating.
@@ -168,7 +168,7 @@ func (m *Migrate) runMigration(migration *Migration) error {
 		return ErrMissingID
 	}
 
-	run, err :=m.migrationDidRun(migration)
+	run, err := m.migrationDidRun(migration)
 	if err != nil {
 		return err
 	}
